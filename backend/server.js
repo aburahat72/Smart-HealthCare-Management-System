@@ -32,19 +32,6 @@ app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', creden
 app.use(express.json({ limit: '10mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-app.use('/api/auth', authRoutes);
-app.use('/api/doctors', doctorRoutes);
-app.use('/api/appointments', appointmentRoutes);
-app.use('/api/medical-records', medicalRecordRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/patients', patientRoutes);
-app.use('/api/upload', uploadRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/hero', heroRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/receipts', receiptRoutes);
-
 app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'Smart Healthcare API is running' }));
 
 const seedData = async () => {
@@ -109,11 +96,41 @@ const seedData = async () => {
   await SystemSettings.getSettings();
 };
 
+let appReadyPromise = null;
+
+const prepareApp = async () => {
+  if (!appReadyPromise) {
+    appReadyPromise = connectDB().then(seedData);
+  }
+  return appReadyPromise;
+};
+
+app.use('/api', async (req, res, next) => {
+  try {
+    await prepareApp();
+    next();
+  } catch (error) {
+    res.status(500).json({ message: 'Server initialization failed' });
+  }
+});
+
+app.use('/api/auth', authRoutes);
+app.use('/api/doctors', doctorRoutes);
+app.use('/api/appointments', appointmentRoutes);
+app.use('/api/medical-records', medicalRecordRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/patients', patientRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/hero', heroRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/receipts', receiptRoutes);
+
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
-  await connectDB();
-  await seedData();
+  await prepareApp();
 
   const server = app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   server.on('error', (error) => {
@@ -126,9 +143,11 @@ const startServer = async () => {
   });
 };
 
-startServer().catch((error) => {
-  console.error(`Server startup failed: ${error.message}`);
-  process.exit(1);
-});
+if (!process.env.VERCEL) {
+  startServer().catch((error) => {
+    console.error(`Server startup failed: ${error.message}`);
+    process.exit(1);
+  });
+}
 
 export default app;
