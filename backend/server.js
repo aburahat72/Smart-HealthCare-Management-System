@@ -10,7 +10,8 @@ import appointmentRoutes from './routes/appointments.js';
 import medicalRecordRoutes from './routes/medicalRecords.js';
 import aiRoutes from './routes/ai.js';
 import patientRoutes from './routes/patients.js';
-import uploadRoutes from './routes/upload.js';
+// i have turn off this upload routes because vercel does not allow to upload file to server using admin panel it have tested in locally it works fine
+// import uploadRoutes from './routes/upload.js';
 import notificationRoutes from './routes/notifications.js';
 import settingsRoutes from './routes/settings.js';
 import heroRoutes from './routes/hero.js';
@@ -30,7 +31,7 @@ const app = express();
 
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
 app.use(express.json({ limit: '10mb' }));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', message: 'Smart Healthcare API is running' }));
 
@@ -120,7 +121,7 @@ app.use('/api/appointments', appointmentRoutes);
 app.use('/api/medical-records', medicalRecordRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/patients', patientRoutes);
-app.use('/api/upload', uploadRoutes);
+// app.use('/api/upload', uploadRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/hero', heroRoutes);
