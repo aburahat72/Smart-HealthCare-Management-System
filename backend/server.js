@@ -21,6 +21,13 @@ import Doctor from './models/Doctor.js';
 import HeroSlide from './models/HeroSlide.js';
 import SystemSettings from './models/SystemSettings.js';
 
+import { sendEmail } from './utils/email.js';   // <-- ADD HERE
+
+
+
+
+
+
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -57,15 +64,13 @@ const seedData = async () => {
       role: 'admin',
     });
     console.log('Admin seeded: admin@healthcare.com / admin123');
+    // console.log('Admin seeded: admin@healthcare.com / admin123');
   }
 
   const doctorCount = await Doctor.countDocuments();
   if (doctorCount === 0) {
     const doctors = [
-      { name: 'Dr. Sarah Johnson', email: 'sarah@healthcare.com', specialization: 'Neurologist', experience: 10, fee: 50 },
-      { name: 'Dr. Michael Brown', email: 'michael@healthcare.com', specialization: 'Cardiologist', experience: 12, fee: 75 },
-      { name: 'Dr. Emily Davis', email: 'emily@healthcare.com', specialization: 'Pediatrician', experience: 8, fee: 45 },
-      { name: 'Dr. James Wilson', email: 'james@healthcare.com', specialization: 'Dermatologist', experience: 15, fee: 60 },
+      { name: 'Dr. Sarah Johnson', email: 'sarah@healthcare.com', specialization: 'Neurologist', experience: 10, fee: 500 },
     ];
 
     for (const d of doctors) {
@@ -98,12 +103,12 @@ const seedData = async () => {
         image: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=600&h=700&fit=crop&crop=face',
         order: 1,
       },
-      {
-        title: 'Easy Appointment Booking',
-        description: 'Book appointments quickly and securely.',
-        image: 'https://images.unsplash.com/photo-1622253692010-333f708ca8ad?w=600&h=700&fit=crop&crop=face',
-        order: 2,
-      },
+      // {
+      //   title: 'Easy Appointment Booking',
+      //   description: 'Book appointments quickly and securely.',
+      //   image: 'https://images.unsplash.com/photo-1622253692010-333f708ca8ad?w=600&h=700&fit=crop&crop=face',
+      //   order: 2,
+      // },
     ]);
     console.log('Default hero slides seeded');
   }
@@ -114,7 +119,7 @@ const seedData = async () => {
 const PORT = process.env.PORT || 5000;
 
 connectDB().then(() => {
-  seedData();
+seedData();
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 });
 

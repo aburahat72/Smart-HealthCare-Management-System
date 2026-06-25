@@ -1,3 +1,8 @@
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+
+dotenv.config({ path: fileURLToPath(new URL('../.env', import.meta.url)) });
+
 /**
  * Central Feature Configuration
  * --------------------------------
@@ -16,7 +21,7 @@ const features = {
    * Env: OTP_ENABLED=true
    * Keys: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER
    *   OR: MSG91_AUTH_KEY, MSG91_SENDER_ID
-   */
+  */
   otp: {
     enabled: process.env.OTP_ENABLED === 'true',
     expiryMinutes: Number(process.env.OTP_EXPIRY_MINUTES) || 10,
@@ -31,7 +36,7 @@ const features = {
    */
   email: {
     enabled: process.env.EMAIL_ENABLED === 'true',
-    from: process.env.EMAIL_FROM || 'noreply@smarthealthcare.com',
+    from: process.env.EMAIL_FROM || 'aburahat72@gmail.com',
   },
 
   /**
@@ -88,12 +93,11 @@ const features = {
   /** Hospital info used in receipts and notifications */
   hospital: {
     name: process.env.HOSPITAL_NAME || 'Smart Healthcare Clinic',
-    address: process.env.HOSPITAL_ADDRESS || '123 Health Street, Medical City',
-    phone: process.env.HOSPITAL_PHONE || '+1 (555) 123-4567',
-    email: process.env.HOSPITAL_EMAIL || 'contact@smarthealthcare.com',
+    address: process.env.HOSPITAL_ADDRESS || 'Hailakandi-City-788151',
+    phone: process.env.HOSPITAL_PHONE || '+91-8134033185',
+    email: process.env.HOSPITAL_EMAIL || 'aburahat72@gmail.com',
     registrationNumber: process.env.HOSPITAL_REG_NUMBER || 'REG-2024-HC-001',
     gstNumber: process.env.HOSPITAL_GST_NUMBER || '', // Future: GST/Tax placeholder
   },
 };
-
 export default features;

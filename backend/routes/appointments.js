@@ -107,7 +107,7 @@ router.post('/', protect, authorize('patient'), async (req, res) => {
 
     // Multi-channel booking confirmation
     await notifyAppointmentBooked(req.user, appointment);
-    await sendAppointmentConfirmationEmail(req.user, appointment);
+    await sendAppointmentConfirmationEmail(req.user, populated);
 
     res.status(201).json({ ...populated.toObject(), paymentId: payment._id });
   } catch (error) {
