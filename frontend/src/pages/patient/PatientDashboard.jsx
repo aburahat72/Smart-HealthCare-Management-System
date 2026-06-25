@@ -1,48 +1,82 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Clock, CheckCircle, XCircle, MapPin, Send } from 'lucide-react';
+import { Calendar, Clock, CheckCircle, XCircle, MapPin, Send, RotateCcw } from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import StatCard from '../../components/StatCard';
 import StatusBadge from '../../components/StatusBadge';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { formatDateTime, getDoctorImage, getDoctorName } from '../../utils/helpers';
+import { getLocalAiFallback, isSymptomMessage } from '../../utils/aiFallback';
 
 export default function PatientDashboard() {
   const { user } = useAuth();
+  const activeChatRequestId = useRef(0);
   const [stats, setStats] = useState({ total: 0, upcoming: 0, completed: 0, cancelled: 0 });
   const [appointments, setAppointments] = useState([]);
   const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatDoctors, setChatDoctors] = useState([]);
   const [chatMessages, setChatMessages] = useState([
-    { role: 'user', text: 'I have headache and body pain.' },
-    { role: 'ai', text: 'Based on your symptoms, you should consult the General Medicine department. Other possible departments: General Physician, Internal Medicine, Infectious Disease Specialist.' },
+    { role: 'ai', text: 'Hi, I can help with appointments, hospital support, doctor availability, and general health guidance.' },
   ]);
 
   useEffect(() => {
-    api.get('/appointments/stats').then((res) => setStats(res.data));
-    api.get('/appointments?limit=5').then((res) => setAppointments(res.data.appointments));
+    api.get('/appointments/stats').then((res) => setStats(res.data)).catch(() => {});
+    api.get('/appointments?limit=5').then((res) => setAppointments(res.data.appointments || [])).catch(() => {});
   }, []);
 
   const upcoming = appointments.find((a) => ['pending', 'accepted', 'upcoming'].includes(a.status));
 
   const sendChat = async () => {
-    if (!chatInput.trim()) return;
+    if (!chatInput.trim() || chatLoading) return;
     const msg = chatInput;
+    const requestId = activeChatRequestId.current + 1;
+    activeChatRequestId.current = requestId;
+    const history = chatMessages.map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
     setChatMessages((prev) => [...prev, { role: 'user', text: msg }]);
     setChatInput('');
+    setChatLoading(true);
+
     try {
-      const { data } = await api.post('/ai/symptoms', { symptoms: msg });
+      if (isSymptomMessage(msg)) {
+        const { data } = await api.post('/ai/symptoms', { symptoms: msg });
+        if (activeChatRequestId.current !== requestId) return;
+        setChatDoctors(data.recommendedDoctors || []);
+        const departments = Array.isArray(data.otherDepartments) && data.otherDepartments.length > 0
+          ? ` Other possible departments: ${data.otherDepartments.join(', ')}.`
+          : '';
+        setChatMessages((prev) => [...prev, { role: 'ai', text: `${data.message}${departments}` }]);
+      } else {
+        const { data } = await api.post('/ai/chat', { message: msg, history });
+        if (activeChatRequestId.current !== requestId) return;
+        setChatDoctors([]);
+        setChatMessages((prev) => [...prev, { role: 'ai', text: data.response }]);
+      }
+    } catch {
+      if (activeChatRequestId.current !== requestId) return;
+      setChatDoctors([]);
       setChatMessages((prev) => [...prev, {
         role: 'ai',
-        text: `${data.message} Other possible departments: ${data.otherDepartments.join(', ')}.`,
+        text: getLocalAiFallback(msg),
       }]);
-    } catch {
-      setChatMessages((prev) => [...prev, { role: 'ai', text: 'Please consult General Medicine for your symptoms.' }]);
+    } finally {
+      if (activeChatRequestId.current === requestId) setChatLoading(false);
     }
   };
 
+  const resetChat = () => {
+    activeChatRequestId.current += 1;
+    setChatInput('');
+    setChatLoading(false);
+    setChatDoctors([]);
+    setChatMessages([
+      { role: 'ai', text: 'Hi, I can help with appointments, hospital support, doctor availability, and general health guidance.' },
+    ]);
+  };
+
   return (
-    <DashboardLayout title={`Welcome Back, ${user?.name} 👋`} subtitle="Take charge of your health and stay safe.">
+    <DashboardLayout title={`Welcome Back, ${user?.name}`} subtitle="Take charge of your health and stay safe.">
       <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Total Appointments" value={stats.total} subtitle="All Time" icon={Calendar} color="blue" />
         <StatCard title="Upcoming" value={stats.upcoming} subtitle="Next 7 Days" icon={Clock} color="green" />
@@ -138,10 +172,29 @@ export default function PatientDashboard() {
                   {m.text}
                 </div>
               ))}
+              {chatLoading && (
+                <div className="mr-8 rounded-xl bg-gray-100 p-3 text-sm text-gray-500">Thinking...</div>
+              )}
             </div>
+            {chatDoctors.length > 0 && (
+              <div className="mt-4 space-y-2 border-t border-gray-100 pt-4">
+                <p className="text-xs font-semibold text-gray-600">Recommended Doctors</p>
+                {chatDoctors.map((doctor) => (
+                  <Link key={doctor._id} to={`/patient/book-appointment?doctorId=${doctor._id}`} className="flex items-center gap-3 rounded-xl border border-gray-100 p-2 transition hover:border-primary-200 hover:bg-primary-50/40">
+                    <img src={getDoctorImage(doctor)} alt="" className="h-9 w-9 rounded-full object-cover" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-semibold text-gray-900">{getDoctorName(doctor)}</p>
+                      <p className="truncate text-xs text-primary-500">{doctor.specialization}</p>
+                    </div>
+                    <Calendar className="h-4 w-4 shrink-0 text-primary-500" />
+                  </Link>
+                ))}
+              </div>
+            )}
             <div className="mt-4 flex gap-2">
-              <input className="input-field flex-1 py-2" placeholder="Type your symptoms..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendChat()} />
-              <button onClick={sendChat} className="btn-primary px-4 py-2"><Send className="h-4 w-4" /></button>
+              <input className="input-field flex-1 py-2" placeholder="Ask for support or describe symptoms..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendChat()} />
+              <button onClick={sendChat} disabled={chatLoading} className="btn-primary px-4 py-2 disabled:opacity-60"><Send className="h-4 w-4" /></button>
+              <button type="button" onClick={resetChat} className="rounded-xl border border-gray-200 px-3 text-gray-500 transition hover:border-primary-200 hover:text-primary-500" aria-label="Reset chat" title="Reset chat"><RotateCcw className="h-4 w-4" /></button>
             </div>
           </div>
         </div>

@@ -14,7 +14,7 @@ import { processChatMessage, analyzeSymptoms } from '../utils/aiService.js';
 
 const router = express.Router();
 
-/** POST /api/ai/chat — General AI assistant chat */
+/** POST /api/ai/chat - General AI assistant chat */
 router.post('/chat', protect, async (req, res) => {
   try {
     const { message, history = [] } = req.body;
@@ -27,7 +27,7 @@ router.post('/chat', protect, async (req, res) => {
   }
 });
 
-/** POST /api/ai/symptoms — Symptom analysis with doctor recommendations */
+/** POST /api/ai/symptoms - Symptom analysis with doctor recommendations */
 router.post('/symptoms', protect, async (req, res) => {
   try {
     const { symptoms } = req.body;

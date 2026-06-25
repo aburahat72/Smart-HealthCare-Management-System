@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Star, ChevronLeft, ChevronRight, Calendar, Clock, Info } from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import api from '../../api/axios';
@@ -11,6 +11,8 @@ const STEPS = ['Select Doctor', 'Select Date & Time', 'Appointment Details', 'Co
 
 export default function BookAppointment() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const doctorIdFromUrl = searchParams.get('doctorId');
   const [step, setStep] = useState(0);
   const [doctors, setDoctors] = useState([]);
   const [specializations, setSpecializations] = useState([]);
@@ -33,6 +35,14 @@ export default function BookAppointment() {
     api.get('/doctors/specializations').then((res) => setSpecializations(res.data));
     fetchDoctors();
   }, [search, spec, page]);
+
+  useEffect(() => {
+    if (!doctorIdFromUrl) return;
+    api.get(`/doctors/${doctorIdFromUrl}`).then((res) => {
+      setSelected(res.data);
+      setStep(1);
+    }).catch(() => {});
+  }, [doctorIdFromUrl]);
 
   const handleBook = async () => {
     setLoading(true);
@@ -90,6 +100,24 @@ export default function BookAppointment() {
               </div>
 
               <div className="mt-6 space-y-4">
+                {selected && doctorIdFromUrl && !doctors.some((doc) => doc._id === selected._id) && (
+                  <label className="flex cursor-pointer flex-col gap-4 rounded-2xl border-2 border-primary-500 bg-primary-50/30 p-4 transition sm:flex-row sm:items-center">
+                    <input type="radio" name="doctor" className="sr-only" checked readOnly />
+                    <img src={getDoctorImage(selected)} alt="" className="h-20 w-20 rounded-2xl object-cover" />
+                    <div className="flex-1">
+                      <h4 className="font-bold text-gray-900">{getDoctorName(selected)}</h4>
+                      <p className="text-sm text-primary-500">{selected.specialization}</p>
+                      <div className="mt-1 flex items-center gap-1 text-sm text-yellow-500">
+                        <Star className="h-4 w-4 fill-current" /> {selected.rating?.toFixed(1)} ({selected.reviewCount} reviews)
+                      </div>
+                      <p className="text-sm text-gray-500">{selected.experience}+ Years Experience</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-500">Consultation Fee</p>
+                      <p className="text-xl font-bold text-green-600">₹{selected.consultationFee}</p>
+                    </div>
+                  </label>
+                )}
                 {doctors.map((doc) => (
                   <label key={doc._id} className={`flex cursor-pointer flex-col gap-4 rounded-2xl border-2 p-4 transition sm:flex-row sm:items-center ${selected?._id === doc._id ? 'border-primary-500 bg-primary-50/30' : 'border-gray-100 hover:border-gray-200'}`}>
                     <input type="radio" name="doctor" className="sr-only" checked={selected?._id === doc._id} onChange={() => setSelected(doc)} />

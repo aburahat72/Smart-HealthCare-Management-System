@@ -4,7 +4,7 @@
  * Handles registration, login, profile, password management,
  * email verification, and OTP flows.
  *
- * OTP & Email features are optional — controlled by config/features.js
+ * OTP & Email features are optional - controlled by config/features.js
  */
 
 import express from 'express';
@@ -27,7 +27,7 @@ const generateToken = (id) => {
   });
 };
 
-/** POST /api/auth/register — Create new user account */
+/** POST /api/auth/register - Create new user account */
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password, role, specialization, experience, consultationFee, otp, phone } = req.body;
@@ -102,7 +102,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-/** POST /api/auth/login — Authenticate user */
+/** POST /api/auth/login - Authenticate user */
 router.post('/login', async (req, res) => {
   try {
     const { email, password, role, otp } = req.body;
@@ -145,7 +145,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-/** POST /api/auth/forgot-password — Request password reset link/OTP */
+/** POST /api/auth/forgot-password - Request password reset link/OTP */
 router.post('/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
@@ -180,7 +180,7 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
-/** POST /api/auth/reset-password — Reset password with token or OTP */
+/** POST /api/auth/reset-password - Reset password with token or OTP */
 router.post('/reset-password', async (req, res) => {
   try {
     const { token, otp, email, newPassword } = req.body;
@@ -218,7 +218,7 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-/** GET /api/auth/verify-email/:token — Verify email address */
+/** GET /api/auth/verify-email/:token - Verify email address */
 router.get('/verify-email/:token', async (req, res) => {
   try {
     const hashedToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
@@ -240,7 +240,7 @@ router.get('/verify-email/:token', async (req, res) => {
   }
 });
 
-/** POST /api/auth/resend-verification — Resend email verification */
+/** POST /api/auth/resend-verification - Resend email verification */
 router.post('/resend-verification', protect, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
@@ -258,7 +258,7 @@ router.post('/resend-verification', protect, async (req, res) => {
   }
 });
 
-/** POST /api/auth/send-otp — Send OTP for any purpose */
+/** POST /api/auth/send-otp - Send OTP for any purpose */
 router.post('/send-otp', async (req, res) => {
   try {
     const { email, purpose, phone } = req.body;
@@ -275,7 +275,7 @@ router.post('/send-otp', async (req, res) => {
   }
 });
 
-/** POST /api/auth/verify-otp — Verify OTP */
+/** POST /api/auth/verify-otp - Verify OTP */
 router.post('/verify-otp', async (req, res) => {
   try {
     const { email, otp, purpose } = req.body;
@@ -289,7 +289,7 @@ router.post('/verify-otp', async (req, res) => {
   }
 });
 
-/** GET /api/auth/features — Public feature flags for frontend */
+/** GET /api/auth/features - Public feature flags for frontend */
 router.get('/features', (req, res) => {
   res.json({
     otpEnabled: features.otp.enabled,

@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import { Send, Bot } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Send, Bot, Calendar, RotateCcw } from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import api from '../../api/axios';
 import { getDoctorImage, getDoctorName } from '../../utils/helpers';
+import { getLocalAiFallback, isSymptomMessage } from '../../utils/aiFallback';
 
 /**
  * AI Health Assistant
@@ -10,6 +12,7 @@ import { getDoctorImage, getDoctorName } from '../../utils/helpers';
  * Set AI_ENABLED=true on backend to connect OpenAI/Gemini APIs.
  */
 export default function AIAssistant() {
+  const activeRequestId = useRef(0);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -18,21 +21,17 @@ export default function AIAssistant() {
   const send = async () => {
     if (!input.trim() || loading) return;
     const text = input;
+    const requestId = activeRequestId.current + 1;
+    activeRequestId.current = requestId;
     const history = messages.map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
     setMessages((prev) => [...prev, { role: 'user', text }]);
     setInput('');
     setLoading(true);
 
     try {
-      // Try general chat first (fallback responses + future AI)
-      const { data } = await api.post('/ai/chat', { message: text, history });
-
-      // Also try symptom analysis if message looks symptom-related
-      const symptomKeywords = ['pain', 'fever', 'headache', 'cough', 'symptom', 'feel', 'hurt', 'ache', 'sick'];
-      const isSymptom = symptomKeywords.some((kw) => text.toLowerCase().includes(kw));
-
-      if (isSymptom) {
+      if (isSymptomMessage(text)) {
         const symptomRes = await api.post('/ai/symptoms', { symptoms: text });
+        if (activeRequestId.current !== requestId) return;
         setDoctors(symptomRes.data.recommendedDoctors || []);
         setMessages((prev) => [...prev, {
           role: 'ai',
@@ -41,6 +40,8 @@ export default function AIAssistant() {
           source: 'symptom-analysis',
         }]);
       } else {
+        const { data } = await api.post('/ai/chat', { message: text, history });
+        if (activeRequestId.current !== requestId) return;
         setDoctors([]);
         setMessages((prev) => [...prev, {
           role: 'ai',
@@ -49,13 +50,24 @@ export default function AIAssistant() {
         }]);
       }
     } catch {
+      if (activeRequestId.current !== requestId) return;
+      setDoctors([]);
       setMessages((prev) => [...prev, {
         role: 'ai',
-        text: 'I can help with booking appointments, registration, doctor availability, and hospital services. Please ask a specific question.',
+        text: getLocalAiFallback(text),
+        source: 'local-fallback',
       }]);
     } finally {
-      setLoading(false);
+      if (activeRequestId.current === requestId) setLoading(false);
     }
+  };
+
+  const resetChat = () => {
+    activeRequestId.current += 1;
+    setInput('');
+    setMessages([]);
+    setDoctors([]);
+    setLoading(false);
   };
 
   const suggestions = [
@@ -116,13 +128,14 @@ export default function AIAssistant() {
               <p className="mb-3 text-sm font-semibold text-gray-700">Recommended Doctors</p>
               <div className="grid gap-3 sm:grid-cols-3">
                 {doctors.map((d) => (
-                  <div key={d._id} className="flex items-center gap-3 rounded-xl border border-gray-100 p-3">
+                  <Link key={d._id} to={`/patient/book-appointment?doctorId=${d._id}`} className="flex items-center gap-3 rounded-xl border border-gray-100 p-3 transition hover:border-primary-200 hover:bg-primary-50/40">
                     <img src={getDoctorImage(d)} alt="" className="h-10 w-10 rounded-full object-cover" />
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold">{getDoctorName(d)}</p>
                       <p className="text-xs text-primary-500">{d.specialization}</p>
                     </div>
-                  </div>
+                    <Calendar className="h-4 w-4 shrink-0 text-primary-500" />
+                  </Link>
                 ))}
               </div>
             </div>
@@ -138,6 +151,15 @@ export default function AIAssistant() {
             />
             <button onClick={send} disabled={loading} className="btn-primary px-5">
               <Send className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={resetChat}
+              className="rounded-xl border border-gray-200 px-4 text-gray-500 transition hover:border-primary-200 hover:text-primary-500"
+              aria-label="Reset chat"
+              title="Reset chat"
+            >
+              <RotateCcw className="h-5 w-5" />
             </button>
           </div>
         </div>

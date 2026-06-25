@@ -21,13 +21,6 @@ import Doctor from './models/Doctor.js';
 import HeroSlide from './models/HeroSlide.js';
 import SystemSettings from './models/SystemSettings.js';
 
-import { sendEmail } from './utils/email.js';   // <-- ADD HERE
-
-
-
-
-
-
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -118,9 +111,24 @@ const seedData = async () => {
 
 const PORT = process.env.PORT || 5000;
 
-connectDB().then(() => {
-seedData();
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const startServer = async () => {
+  await connectDB();
+  await seedData();
+
+  const server = app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is already in use. Stop the existing server or set a different PORT.`);
+    } else {
+      console.error(`Server startup error: ${error.message}`);
+    }
+    process.exit(1);
+  });
+};
+
+startServer().catch((error) => {
+  console.error(`Server startup failed: ${error.message}`);
+  process.exit(1);
 });
 
 export default app;
