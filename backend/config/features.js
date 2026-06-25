@@ -87,7 +87,7 @@ const features = {
   ai: {
     enabled: process.env.AI_ENABLED === 'true',
     provider: process.env.AI_PROVIDER || 'openai', // 'openai' | 'gemini'
-    model: process.env.AI_MODEL || 'gpt-4o-mini',
+    model: process.env.AI_MODEL || (process.env.AI_PROVIDER === 'gemini' ? 'gemini-2.5-flash' : 'gpt-4o-mini'),
   },
 
   /** Hospital info used in receipts and notifications */

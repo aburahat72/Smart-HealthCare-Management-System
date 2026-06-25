@@ -1,125 +1,187 @@
 /**
  * AI Assistant Service
  * --------------------
- * Architecture supports OpenAI and Gemini APIs with predefined fallback responses.
- * AI is DISABLED by default — set AI_ENABLED=true and add API keys to activate.
- *
- * To enable OpenAI: OPENAI_API_KEY, AI_PROVIDER=openai
- * To enable Gemini:  GEMINI_API_KEY, AI_PROVIDER=gemini
+ * Supports Gemini with safe healthcare guidance and local fallback responses.
  */
 
+import { GoogleGenAI } from '@google/genai';
 import features from '../config/features.js';
 
-/** Predefined fallback responses when AI API is unavailable */
+const HEALTHCARE_DISCLAIMER =
+  'Please note: I can provide general health information and guidance, but I am not a substitute for a licensed doctor. For urgent, severe, or worsening symptoms, please seek immediate medical care.';
+
+const ASSISTANT_IDENTITY =
+  'I am the Smart Healthcare AI Assistant, a professional digital assistant for Smart Healthcare. I can help with appointment booking guidance, doctor availability, hospital services, and general health information.';
+
+const SYSTEM_INSTRUCTION = [
+  'You are the Smart Healthcare AI Assistant for the Smart Healthcare Management System.',
+  'If the user asks who you are, do not say you are Gemini, Google, or any model name. Say: "I am the Smart Healthcare AI Assistant."',
+  'Be professional, calm, concise, and patient-friendly.',
+  'Provide general healthcare information, symptom guidance, department suggestions, and help with using the hospital system.',
+  'Do not diagnose, prescribe medicine, or claim certainty about medical conditions.',
+  'For emergencies, severe symptoms, chest pain, breathing difficulty, fainting, severe bleeding, stroke symptoms, or rapidly worsening symptoms, advise urgent medical care immediately.',
+  `Include this disclaimer when giving health guidance: ${HEALTHCARE_DISCLAIMER}`,
+].join('\n');
+
 const FALLBACK_RESPONSES = [
   {
+    keywords: ['who are you', 'what are you', 'your name', 'are you gemini', 'are you google'],
+    response: ASSISTANT_IDENTITY,
+  },
+  {
     keywords: ['book', 'appointment', 'schedule'],
-    response: 'To book an appointment: Login → Go to "Book Appointment" → Select a doctor → Choose date & time → Confirm. You can also register as a new patient from the homepage.',
+    response: 'To book an appointment: log in, go to Book Appointment, select a doctor, choose a date and time, then confirm your booking. You can also register as a new patient from the homepage.',
   },
   {
     keywords: ['register', 'sign up', 'create account'],
-    response: 'To register: Click "Register" on the homepage → Fill in your name, email, and password → Select Patient role → Submit. You can then book appointments immediately.',
+    response: 'To register: click Register on the homepage, enter your name, email, and password, select Patient, then submit. After registration, you can book appointments immediately.',
   },
   {
     keywords: ['contact', 'support', 'help', 'phone'],
-    response: `For support, contact us at ${features.hospital.phone} or email ${features.hospital.email}. You can also use the Contact form on our homepage.`,
+    response: `For support, contact us at ${features.hospital.phone} or email ${features.hospital.email}. You can also use the contact form on the homepage.`,
   },
   {
     keywords: ['doctor', 'available', 'availability'],
-    response: 'To check doctor availability: Go to "Book Appointment" → Browse doctors by specialization → Select a date to see available time slots. Featured doctors are listed on our homepage.',
+    response: 'To check doctor availability: go to Book Appointment, browse doctors by specialization, and select a date to view available time slots.',
   },
   {
     keywords: ['service', 'hospital', 'offer', 'facility'],
-    response: 'Our services include: Online appointment booking, doctor search, secure medical records, AI health assistant, and real-time appointment tracking. Visit the Services section on our homepage for details.',
+    response: 'Smart Healthcare supports online appointment booking, doctor search, secure medical records, AI health guidance, and appointment tracking.',
   },
   {
     keywords: ['payment', 'fee', 'cost', 'price'],
-    response: 'Consultation fees vary by doctor and are shown during booking. Payment can be made online when the payment module is enabled. Check your appointment receipt for fee details.',
+    response: 'Consultation fees vary by doctor and are shown during booking. You can check payment and receipt details from your patient dashboard.',
   },
   {
     keywords: ['record', 'medical', 'history'],
-    response: 'Access your medical records from the patient dashboard under "Medical Records". Your doctor can upload records after consultations.',
+    response: 'You can access your medical records from the patient dashboard under Medical Records. Doctors can upload records after consultations.',
   },
   {
     keywords: ['cancel', 'cancellation'],
-    response: 'To cancel an appointment: Go to "My Appointments" → Find the appointment → Click "Cancel". Cancellations are allowed for pending and upcoming appointments.',
+    response: 'To cancel an appointment: go to My Appointments, find the appointment, and choose Cancel. Cancellation is available for pending and upcoming appointments.',
   },
 ];
 
-/** Match user message against fallback keyword patterns */
 const getFallbackResponse = (message) => {
   const text = message.toLowerCase();
   for (const item of FALLBACK_RESPONSES) {
-    if (item.keywords.some((kw) => text.includes(kw))) {
+    if (item.keywords.some((keyword) => text.includes(keyword))) {
       return item.response;
     }
   }
-  return 'I can help with booking appointments, registration, doctor availability, hospital services, and support contact. Please ask a specific question, or describe your symptoms for department recommendations.';
+
+  return `${ASSISTANT_IDENTITY} Please ask a specific question, or describe your symptoms for department recommendations. ${HEALTHCARE_DISCLAIMER}`;
 };
 
-/**
- * Call external AI API — COMMENTED until keys are configured.
- * Uncomment the relevant provider block when AI_ENABLED=true.
- */
+const hasHealthContent = (message) => {
+  const text = message.toLowerCase();
+  return [
+    'pain',
+    'fever',
+    'cough',
+    'symptom',
+    'medicine',
+    'tablet',
+    'doctor',
+    'treatment',
+    'diagnose',
+    'diagnosis',
+    'blood',
+    'breathing',
+    'chest',
+    'headache',
+    'vomit',
+    'infection',
+    'rash',
+    'injury',
+    'emergency',
+    'pregnant',
+    'sick',
+    'health',
+  ].some((word) => text.includes(word));
+};
+
+const addHealthcareDisclaimer = (response, message) => {
+  if (!hasHealthContent(message)) return response;
+  if (response.toLowerCase().includes('not a substitute for a licensed doctor')) return response;
+  return `${response}\n\n${HEALTHCARE_DISCLAIMER}`;
+};
+
+const normalizeHistory = (conversationHistory = []) =>
+  conversationHistory
+    .filter((item) => item?.content || item?.text || item?.message)
+    .slice(-8)
+    .map((item) => {
+      const role = item.role === 'assistant' || item.role === 'model' ? 'model' : 'user';
+      const text = item.content || item.text || item.message;
+      return { role, parts: [{ text }] };
+    });
+
 const callAiApi = async (message, conversationHistory = []) => {
   if (!features.ai.enabled) return null;
+  if (features.ai.provider !== 'gemini') return null;
+  if (!process.env.GEMINI_API_KEY) {
+    console.warn('[AI] Gemini API key is missing. Falling back to local responses.');
+    return null;
+  }
 
-  // --- OPENAI API (uncomment when ready) ---
-  // const response = await fetch('https://api.openai.com/v1/chat/completions', {
-  //   method: 'POST',
-  //   headers: {
-  //     'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-  //     'Content-Type': 'application/json',
-  //   },
-  //   body: JSON.stringify({
-  //     model: features.ai.model,
-  //     messages: [
-  //       { role: 'system', content: 'You are a helpful healthcare assistant for Smart Healthcare clinic. Provide concise, professional health guidance. Always recommend consulting a doctor for serious symptoms.' },
-  //       ...conversationHistory,
-  //       { role: 'user', content: message },
-  //     ],
-  //   }),
-  // });
-  // const data = await response.json();
-  // return data.choices[0].message.content;
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const response = await ai.models.generateContent({
+      model: features.ai.model,
+      contents: [
+        ...normalizeHistory(conversationHistory),
+        { role: 'user', parts: [{ text: message }] },
+      ],
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
+        temperature: 0.4,
+      },
+    });
 
-  // --- GEMINI API (alternative, uncomment when ready) ---
-  // const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify({ contents: [{ parts: [{ text: message }] }] }),
-  // });
-  // const data = await response.json();
-  // return data.candidates[0].content.parts[0].text;
-
-  return null;
+    return response.text || null;
+  } catch (error) {
+    console.error(`[AI] Gemini request failed: ${error.message}`);
+    return null;
+  }
 };
 
-/** Main chat handler — tries AI API, falls back to predefined responses */
 export const processChatMessage = async (message, conversationHistory = []) => {
+  if (/who are you|what are you|your name|are you gemini|are you google/i.test(message)) {
+    return { response: ASSISTANT_IDENTITY, source: 'identity' };
+  }
+
   const aiResponse = await callAiApi(message, conversationHistory);
   if (aiResponse) {
-    return { response: aiResponse, source: 'ai' };
+    return { response: addHealthcareDisclaimer(aiResponse, message), source: 'ai' };
   }
-  return { response: getFallbackResponse(message), source: 'fallback' };
+
+  return { response: addHealthcareDisclaimer(getFallbackResponse(message), message), source: 'fallback' };
 };
 
-/** Symptom analysis fallback (existing keyword-based logic preserved) */
 export const analyzeSymptoms = (symptoms) => {
   const symptomMap = {
-    fever: 'General Medicine', headache: 'General Medicine', cough: 'General Medicine',
-    'chest pain': 'Cardiology', 'skin rash': 'Dermatology', 'joint pain': 'Orthopedics',
-    dizziness: 'Neurology', anxiety: 'Psychiatry', 'stomach pain': 'Gastroenterology',
+    fever: 'General Medicine',
+    headache: 'General Medicine',
+    cough: 'General Medicine',
+    'chest pain': 'Cardiology',
+    'skin rash': 'Dermatology',
+    'joint pain': 'Orthopedics',
+    dizziness: 'Neurology',
+    anxiety: 'Psychiatry',
+    'stomach pain': 'Gastroenterology',
   };
+
   const text = symptoms.toLowerCase();
   const matched = new Set();
-  for (const [symptom, dept] of Object.entries(symptomMap)) {
-    if (text.includes(symptom)) matched.add(dept);
+  for (const [symptom, department] of Object.entries(symptomMap)) {
+    if (text.includes(symptom)) matched.add(department);
   }
+
   const primary = matched.size > 0 ? [...matched][0] : 'General Medicine';
   return {
     primaryDepartment: primary,
-    message: `Based on your symptoms, you should consult the ${primary} department.`,
+    message: `Based on your symptoms, you should consult the ${primary} department. ${HEALTHCARE_DISCLAIMER}`,
   };
 };
 
