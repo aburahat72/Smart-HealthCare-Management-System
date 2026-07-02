@@ -72,18 +72,18 @@ const seedData = async () => {
   const slideCount = await HeroSlide.countDocuments();
   if (slideCount === 0) {
     await HeroSlide.insertMany([
-      {
-        title: 'Your Health, Our Priority',
-        description: 'Trusted healthcare services for you and your family.',
-        image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=600&h=700&fit=crop&crop=face',
-        order: 0,
-      },
+      // {
+      //   title: 'Your Health, Our Priority',
+      //   description: 'Trusted healthcare services for you and your family.',
+      //   image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=600&h=700&fit=crop&crop=face',
+      //   order: 0,
+      // }
       {
         title: 'Expert Medical Care',
         description: 'Connect with experienced doctors anytime.',
         image: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=600&h=700&fit=crop&crop=face',
-        order: 1,
-      },
+        order: 1
+      }
       // {
       //   title: 'Easy Appointment Booking',
       //   description: 'Book appointments quickly and securely.',
