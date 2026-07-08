@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { getMediaUrl } from '../utils/helpers';
+import { useState, useEffect, useCallback } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { getMediaUrl } from "../utils/helpers";
 
 /**
  * Hero Slider Component
@@ -11,30 +11,44 @@ import { getMediaUrl } from '../utils/helpers';
  */
 const DEFAULT_SLIDES = [
   {
-    title: 'Your Health, Our Priority',
-    description: 'Trusted healthcare services for you and your family.',
-    image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=600&h=700&fit=crop&crop=face',
+    title: "Your Health, Our Priority",
+    description: "Trusted healthcare services for you and your family.",
+    image:
+      "https://raw.githubusercontent.com/aburahat72/Smart-HealthCare-Management-System/refs/heads/main/frontend/assets/myphotowhitedress.png",
   },
 ];
 
-export default function HeroSlider({ slides: propSlides, slideInterval: propInterval, onSlideChange }) {
+export default function HeroSlider({
+  slides: propSlides,
+  slideInterval: propInterval,
+  onSlideChange,
+}) {
   const slides = propSlides?.length > 0 ? propSlides : DEFAULT_SLIDES;
   const interval = (propInterval || 5) * 1000;
   const [current, setCurrent] = useState(0);
   const [fading, setFading] = useState(false);
 
-  const goTo = useCallback((index) => {
-    if (index === current || fading) return;
-    setFading(true);
-    setTimeout(() => {
-      setCurrent(index);
-      setFading(false);
-      onSlideChange?.(slides[index]);
-    }, 400);
-  }, [current, fading, slides, onSlideChange]);
+  const goTo = useCallback(
+    (index) => {
+      if (index === current || fading) return;
+      setFading(true);
+      setTimeout(() => {
+        setCurrent(index);
+        setFading(false);
+        onSlideChange?.(slides[index]);
+      }, 400);
+    },
+    [current, fading, slides, onSlideChange],
+  );
 
-  const next = useCallback(() => goTo((current + 1) % slides.length), [current, slides.length, goTo]);
-  const prev = useCallback(() => goTo((current - 1 + slides.length) % slides.length), [current, slides.length, goTo]);
+  const next = useCallback(
+    () => goTo((current + 1) % slides.length),
+    [current, slides.length, goTo],
+  );
+  const prev = useCallback(
+    () => goTo((current - 1 + slides.length) % slides.length),
+    [current, slides.length, goTo],
+  );
 
   useEffect(() => {
     const timer = setInterval(next, interval);
@@ -56,7 +70,7 @@ export default function HeroSlider({ slides: propSlides, slideInterval: propInte
         <img
           src={getMediaUrl(slide.image)}
           alt={slide.title}
-          className={`max-h-[500px] rounded-3xl object-cover shadow-2xl transition-opacity duration-500 ease-in-out ${fading ? 'opacity-0' : 'opacity-100'}`}
+          className={`max-h-[500px] rounded-3xl object-cover shadow-2xl transition-opacity duration-500 ease-in-out ${fading ? "opacity-0" : "opacity-100"}`}
         />
 
         {/* Manual navigation arrows */}
@@ -88,7 +102,9 @@ export default function HeroSlider({ slides: propSlides, slideInterval: propInte
               key={i}
               onClick={() => goTo(i)}
               className={`h-2.5 rounded-full transition-all duration-300 ${
-                i === current ? 'w-6 bg-primary-500' : 'w-2.5 bg-gray-300 hover:bg-primary-300'
+                i === current
+                  ? "w-6 bg-primary-500"
+                  : "w-2.5 bg-gray-300 hover:bg-primary-300"
               }`}
               aria-label={`Go to slide ${i + 1}`}
             />
@@ -101,8 +117,19 @@ export default function HeroSlider({ slides: propSlides, slideInterval: propInte
 
 /** Hook to expose current slide text for hero heading sync */
 export function useHeroText(slides, slideInterval) {
-  const [activeSlide, setActiveSlide] = useState(slides?.[0] || DEFAULT_SLIDES[0]);
-  return { activeSlide, setActiveSlide, HeroSlider: (props) => (
-    <HeroSlider slides={slides} slideInterval={slideInterval} onSlideChange={setActiveSlide} {...props} />
-  )};
+  const [activeSlide, setActiveSlide] = useState(
+    slides?.[0] || DEFAULT_SLIDES[0],
+  );
+  return {
+    activeSlide,
+    setActiveSlide,
+    HeroSlider: (props) => (
+      <HeroSlider
+        slides={slides}
+        slideInterval={slideInterval}
+        onSlideChange={setActiveSlide}
+        {...props}
+      />
+    ),
+  };
 }
